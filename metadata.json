@@ -1,0 +1,6 @@
+{
+  "name": "KeNIP & KNITAU National Portal",
+  "description": "Unified Kenya National Internship Platform (KeNIP) and KNITAU Union & Welfare Portal interactive prototype.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
