@@ -1043,7 +1043,7 @@
                             <h3 class="font-display text-base font-bold text-knitau-black">Attachment Health &amp; Support Bars</h3>
                             <p class="text-xs text-knitau-black/60">Live readiness across pay, mentorship, global corridor &amp; safe files</p>
                           </div>
-                          <span class="rounded bg-knitau-black px-2 py-0.5 font-mono text-[10px] font-bold text-knitau-gold" x-text="internStipends[0].status === 'Confirmed' ? 'Stipend Paid' : '1 Stipend Alert'"></span>
+                          <span class="rounded bg-knitau-black px-2 py-0.5 font-mono text-[10px] font-bold text-knitau-gold" x-text="internStipends.some((s) => s.status !== 'Confirmed') ? internStipends.filter((s) => s.status !== 'Confirmed').length + ' Stipend Alert' : 'All Stipends Paid'"></span>
                         </div>
                         <div class="space-y-3 text-xs">
                           <div class="space-y-1">
@@ -1825,6 +1825,12 @@
                           </div>
                         </div>
                       </template>
+                      <div x-show="filteredGlobalOpps().length === 0" class="md:col-span-2 rounded-xl border border-knitau-black/15 bg-white p-6 text-center space-y-2">
+                        <p class="text-xs font-semibold text-knitau-black">No overseas opportunities match this combination of filters.</p>
+                        <button type="button" @click="globalFilter = { country: 'All', mode: 'All', visa: 'All' }" class="min-h-[34px] rounded-md border border-knitau-black/25 bg-white px-3.5 py-1.5 text-xs font-semibold text-knitau-black hover:bg-knitau-black/[0.04]">
+                          Reset Global Filters
+                        </button>
+                      </div>
                     </div>
 
                     <!-- Diaspora Mentor Registry & Virtual Session Scheduler -->
@@ -1900,6 +1906,12 @@
                                   <p class="mt-0.5 text-xs text-knitau-black/75" x-text="m.expertise + ' · ' + m.country"></p>
                                 </div>
                                 <span x-show="m.verified" class="shrink-0 rounded bg-knitau-green/[0.08] border border-knitau-green/35 px-2 py-0.5 text-[10px] font-bold text-knitau-green">Verified</span>
+                              </div>
+
+                              <!-- Mentor Biography / Professional Summary -->
+                              <div class="rounded-md border border-knitau-black/10 bg-knitau-black/[0.025] px-3 py-2">
+                                <p class="text-[10px] font-bold uppercase tracking-wide text-knitau-black/60">Professional Summary</p>
+                                <p class="mt-0.5 text-xs leading-relaxed text-knitau-black/80" x-text="m.bio"></p>
                               </div>
 
                               <!-- Mentor Expertise Tags with Overlap Highlighting -->
@@ -2009,9 +2021,14 @@
                         <p class="font-mono text-[11px] font-bold uppercase text-knitau-green">Return &amp; Reintegration (Kenya)</p>
                         <h3 class="font-display text-base font-bold text-knitau-black">Bring Global Skills Home</h3>
                         <p class="text-xs text-knitau-black/80">Interns completing overseas tracks are matched to Kenya graduate roles, public innovation labs, and alumni mentoring.</p>
-                        <button type="button" @click="switchView('passport')" class="min-h-[34px] rounded-md bg-knitau-green px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-knitau-green/90">
-                          Sync Overseas Skills to Career Passport &rarr;
-                        </button>
+                        <div class="flex flex-wrap gap-2">
+                          <button type="button" @click="switchView('passport')" class="min-h-[34px] rounded-md bg-knitau-green px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-knitau-green/90">
+                            Sync Overseas Skills to Career Passport &rarr;
+                          </button>
+                          <button type="button" @click="switchView('opportunities')" class="min-h-[34px] rounded-md border border-knitau-black/25 bg-white px-3.5 py-1.5 text-xs font-semibold text-knitau-black hover:bg-knitau-black/[0.04]">
+                            Local Job Matching &rarr;
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </section>
@@ -2126,7 +2143,10 @@
                                 <p class="font-bold text-knitau-green">Exit Letter &amp; Experience Summary Ready</p>
                                 <p class="text-knitau-black/80">Your Career Passport has been updated and you joined the KNITAU Alumni Network.</p>
                               </div>
-                              <button type="button" @click="toggleAlumniMentorOptIn(ex.id)" class="min-h-[34px] shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold" :class="ex.mentorOptIn ? 'bg-knitau-gold text-knitau-black font-bold' : 'bg-knitau-black text-white'" x-text="ex.mentorOptIn ? 'Alumni Mentor: Opted In ✓' : 'Volunteer as Alumni Mentor'"></button>
+                              <div class="flex flex-wrap gap-2 shrink-0">
+                                <button type="button" @click="downloadExitLetter(ex)" class="min-h-[34px] rounded-md border border-knitau-green/40 bg-white px-3 py-1.5 text-xs font-semibold text-knitau-green hover:bg-knitau-green/[0.08]">Download Exit Letter</button>
+                                <button type="button" @click="toggleAlumniMentorOptIn(ex.id)" class="min-h-[34px] rounded-md px-3 py-1.5 text-xs font-semibold" :class="ex.mentorOptIn ? 'bg-knitau-gold text-knitau-black font-bold' : 'bg-knitau-black text-white'" x-text="ex.mentorOptIn ? 'Alumni Mentor: Opted In ✓' : 'Volunteer as Alumni Mentor'"></button>
+                              </div>
                             </div>
                           </div>
                         </template>
@@ -2759,11 +2779,17 @@
                         <button x-show="canAccessGrievances()" type="button" @click="switchView('sla')" class="min-h-[40px] rounded-md bg-knitau-red px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-red/90 whitespace-nowrap shadow-sm">
                           Open Complaints Desk
                         </button>
-                        <button x-show="adminSubRole !== 'case_officer'" type="button" @click="switchView('finance')" class="min-h-[40px] rounded-md bg-knitau-green px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-green/90 whitespace-nowrap shadow-sm">
+                        <button x-show="adminSubRole === 'executive' || adminSubRole === 'finance_officer'" type="button" @click="switchView('finance')" class="min-h-[40px] rounded-md bg-knitau-green px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-green/90 whitespace-nowrap shadow-sm">
                           Money &amp; PIN Treasury
                         </button>
-                        <button type="button" @click="switchView('feedback-analytics')" class="min-h-[40px] rounded-md bg-knitau-black px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-black/85 whitespace-nowrap shadow-sm">
+                        <button x-show="adminSubRole === 'executive' || adminSubRole === 'case_officer'" type="button" @click="switchView('feedback-analytics')" class="min-h-[40px] rounded-md bg-knitau-black px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-black/85 whitespace-nowrap shadow-sm">
                           Feedback Analytics
+                        </button>
+                        <button x-show="adminSubRole === 'finance_officer'" type="button" @click="switchView('approvals')" class="min-h-[40px] rounded-md bg-knitau-black px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-black/85 whitespace-nowrap shadow-sm">
+                          PIN Approvals Queue
+                        </button>
+                        <button x-show="adminSubRole === 'chapter_rep'" type="button" @click="switchView('chapters')" class="min-h-[40px] rounded-md bg-knitau-black px-4 py-2 text-xs font-semibold text-white hover:bg-knitau-black/85 whitespace-nowrap shadow-sm">
+                          County Chapters
                         </button>
                       </div>
                     </div>
@@ -2832,7 +2858,7 @@
                             <h2 class="font-display text-base font-bold text-knitau-black">Service Feedback &amp; Exits Donut</h2>
                             <p class="text-xs text-knitau-black/60">Public sentiment across <span class="font-mono font-bold" x-text="publicFeedback.length"></span> submissions</p>
                           </div>
-                          <button type="button" @click="switchView('feedback-analytics')" class="text-xs font-semibold text-knitau-black hover:underline">Full Analytics &rarr;</button>
+                          <button x-show="adminSubRole === 'executive' || adminSubRole === 'case_officer'" type="button" @click="switchView('feedback-analytics')" class="text-xs font-semibold text-knitau-black hover:underline">Full Analytics &rarr;</button>
                         </div>
                         <div class="flex flex-col sm:flex-row items-center gap-6">
                           <div
@@ -2884,7 +2910,7 @@
                         <div class="space-y-3">
                           <div class="flex items-center justify-between gap-2">
                             <h2 class="font-display text-base font-bold text-knitau-black">Cross-Module Readiness Bars</h2>
-                            <button type="button" @click="switchView('chapters')" class="text-xs font-semibold text-knitau-black hover:underline whitespace-nowrap">Chapters &rarr;</button>
+                            <button x-show="adminSubRole === 'executive' || adminSubRole === 'chapter_rep'" type="button" @click="switchView('chapters')" class="text-xs font-semibold text-knitau-black hover:underline whitespace-nowrap">Chapters &rarr;</button>
                           </div>
                           <div class="space-y-3 text-xs">
                             <div class="space-y-1">
@@ -3368,6 +3394,7 @@
                           <input type="text" x-model.trim="diasporaMentorForm.country" required placeholder="Country (e.g. Germany)" class="rounded border border-knitau-black/25 bg-white px-2.5 py-1.5 text-xs" />
                           <input type="text" x-model.trim="diasporaMentorForm.expertise" required placeholder="Expertise Headline" class="sm:col-span-2 rounded border border-knitau-black/25 bg-white px-2.5 py-1.5 text-xs" />
                           <input type="text" x-model.trim="diasporaMentorForm.skillTagsInput" required placeholder="Expertise Tags (comma-separated, e.g. SCADA, Python, Safety)" class="sm:col-span-2 rounded border border-knitau-black/25 bg-white px-2.5 py-1.5 text-xs" />
+                          <textarea rows="2" x-model.trim="diasporaMentorForm.bio" required placeholder="Biography / Professional Summary (background & career journey)" class="sm:col-span-2 rounded border border-knitau-black/25 bg-white px-2.5 py-1.5 text-xs"></textarea>
                           <button type="submit" class="sm:col-span-2 min-h-[34px] rounded-md bg-knitau-black px-3 py-1.5 text-xs font-semibold text-white hover:bg-knitau-black/85">
                             Add Diaspora Mentor &amp; Tags
                           </button>
@@ -3378,6 +3405,7 @@
                               <div class="min-w-0 space-y-1.5">
                                 <p class="font-display text-sm font-bold text-knitau-black" x-text="m.name"></p>
                                 <p class="text-xs text-knitau-black/75" x-text="m.country + ' · ' + m.timezone + ' · ' + m.expertise"></p>
+                                <p class="text-[11px] leading-relaxed text-knitau-black/70" x-text="normalizeMentorBio(m)"></p>
                                 <div class="flex flex-wrap gap-1">
                                   <template x-for="tag in normalizeMentorTags(m)" :key="tag">
                                     <span class="rounded border border-knitau-black/15 bg-knitau-black/[0.03] px-1.5 py-0.5 text-[10px] font-medium text-knitau-black/75" x-text="tag"></span>
@@ -3410,10 +3438,17 @@
                           </div>
                           <p class="text-xs text-knitau-black/80" x-text="'Handover / Notes: ' + ex.handoverPlan"></p>
                           <p x-show="ex.internResponse" class="rounded bg-knitau-gold/15 border border-knitau-gold px-3 py-2 text-xs font-semibold text-knitau-black" x-text="'Intern Right-to-Reply Statement: ' + ex.internResponse"></p>
-                          <div class="flex flex-wrap gap-2 pt-1">
+                          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 text-[11px]">
+                            <div class="rounded border px-2.5 py-1.5" :class="ex.clearance && ex.clearance.equipmentReturned ? 'border-knitau-green/40 bg-knitau-green/[0.07] text-knitau-green font-bold' : 'border-knitau-black/15 text-knitau-black/60'" x-text="(ex.clearance && ex.clearance.equipmentReturned ? '✓ ' : '○ ') + 'Equipment'"></div>
+                            <div class="rounded border px-2.5 py-1.5" :class="ex.clearance && ex.clearance.docsHandedOver ? 'border-knitau-green/40 bg-knitau-green/[0.07] text-knitau-green font-bold' : 'border-knitau-black/15 text-knitau-black/60'" x-text="(ex.clearance && ex.clearance.docsHandedOver ? '✓ ' : '○ ') + 'Handover Docs'"></div>
+                            <div class="rounded border px-2.5 py-1.5" :class="ex.clearance && ex.clearance.finalStipendCalculated ? 'border-knitau-green/40 bg-knitau-green/[0.07] text-knitau-green font-bold' : 'border-knitau-black/15 text-knitau-black/60'" x-text="(ex.clearance && ex.clearance.finalStipendCalculated ? '✓ KES ' + formatNumber(ex.finalStipendAmount || 0) : '○ Final Pay')"></div>
+                            <div class="rounded border px-2.5 py-1.5" :class="ex.clearance && ex.clearance.accessRevoked ? 'border-knitau-green/40 bg-knitau-green/[0.07] text-knitau-green font-bold' : 'border-knitau-black/15 text-knitau-black/60'" x-text="(ex.clearance && ex.clearance.accessRevoked ? '✓ ' : '○ ') + 'Access Closed'"></div>
+                          </div>
+                          <div class="flex flex-wrap gap-2 pt-1 items-center">
                             <button x-show="!ex.hrReviewed" type="button" @click="approveExitByHr(ex.id)" class="min-h-[34px] rounded-md bg-knitau-black px-3.5 py-1.5 text-xs font-semibold text-white">Complete HR Review</button>
                             <button x-show="ex.hrReviewed && !ex.exitLetterIssued" type="button" @click="issueExitLetterAndAlumni(ex.id)" class="min-h-[34px] rounded-md bg-knitau-green px-3.5 py-1.5 text-xs font-semibold text-white">Issue Exit Letter &amp; Add to Alumni</button>
                             <span x-show="ex.exitLetterIssued" class="text-xs font-bold text-knitau-green">✓ Exit Letter Issued &middot; Career Passport &amp; Alumni Synced</span>
+                            <span x-show="ex.mentorOptIn" class="rounded bg-knitau-gold px-2 py-0.5 text-[10px] font-bold text-knitau-black">Alumni Mentor Active</span>
                           </div>
                         </div>
                       </template>
@@ -4624,6 +4659,7 @@
               country: 'Germany',
               timezone: 'CET (UTC+1)',
               expertise: 'High-Voltage Power, SCADA Telemetry & Substation Switching',
+              bio: 'University of Nairobi Electrical Engineering alumna with 11 years leading grid automation across Munich and Nairobi. Started as a KPLC attaché before completing her doctorate in smart grid protection.',
               skillTags: ['SCADA', 'Telemetry', 'High-Voltage', 'Substation', 'Switching', 'Electrical', 'Energy', 'Grid'],
               availability: 'Tue & Thu · 18:00 CET',
               verified: true,
@@ -4635,6 +4671,7 @@
               country: 'Canada',
               timezone: 'EST (UTC-5)',
               expertise: 'Occupational Safety (NEMA), Lockout Compliance & Grid Diagnostics',
+              bio: 'Senior Transmission Safety Engineer who grew from Olkaria geothermal attachments into North American utility compliance. Coaches Kenyan trainees on OHS standards and substation readiness.',
               skillTags: ['Occupational', 'Safety', 'NEMA', 'Compliance', 'Diagnostics', 'Substation', 'WIBA', 'PPE'],
               availability: 'Mon & Wed · 14:00 EST',
               verified: true,
@@ -4646,6 +4683,7 @@
               country: 'United Kingdom',
               timezone: 'GMT (UTC+0)',
               expertise: 'Cloud Infrastructure, Software Telemetry & Career Portfolios',
+              bio: 'Cloud & Systems Architect in London and former JKUAT ICT attaché. Guides Kenyan interns on open-source engineering portfolios, remote readiness, and global tech fellowships.',
               skillTags: ['Cloud', 'Software', 'Python', 'Data', 'Telemetry', 'GovTech', 'Infrastructure', 'Web'],
               availability: 'Sat · 11:00 GMT',
               verified: true,
@@ -4657,6 +4695,7 @@
               country: 'United States',
               timezone: 'EST (UTC-5)',
               expertise: 'Epidemiology, Clinical Safety & Global Health Fellowships',
+              bio: 'Public Health Epidemiologist supporting East African clinical data fellowships from Boston. Began her career in county hospital attaché programs and mentors nursing and health trainees.',
               skillTags: ['Health', 'Clinical', 'Nursing', 'Epidemiology', 'Safety', 'Research'],
               availability: 'Wed · 10:00 EST',
               verified: false,
@@ -4866,7 +4905,7 @@
           globalFilter: { country: 'All', mode: 'All', visa: 'All' },
           globalCurrency: 'USD',
           diasporaOnlyMatched: false,
-          diasporaMentorForm: { name: '', country: '', timezone: 'CET (UTC+1)', expertise: '', skillTagsInput: '', availability: 'Thu · 17:00 Local' },
+          diasporaMentorForm: { name: '', country: '', timezone: 'CET (UTC+1)', expertise: '', skillTagsInput: '', bio: '', availability: 'Thu · 17:00 Local' },
           virtualSessionForm: { mentorId: 1, topic: '', date: '2026-11-26', timeEAT: '15:00' },
           earlyExitForm: { reason: 'Full-Time Job Offer', noticeDays: 14, handoverPlan: '', privacyConsent: false },
           dismissalForm: { internName: '', reason: 'Repeated Safety Protocol Breach', details: '', file: null, evidenceName: '', evidenceHash: '', privacyConsent: false },
@@ -5232,15 +5271,21 @@
             }
             this.lastMemberStatus = nextStatus;
 
-            // Ensure legacy stored mentors/skills include normalized skillTags & active flags
+            // Ensure legacy stored mentors/skills include normalized skillTags, bio & active flags
             if (Array.isArray(this.diasporaMentors)) {
-              let tagsBackfilled = false;
+              let mentorBackfilled = false;
               this.diasporaMentors = this.diasporaMentors.map((m) => {
-                if (Array.isArray(m.skillTags) && m.skillTags.length > 0) return m;
-                tagsBackfilled = true;
-                return { ...m, skillTags: this.normalizeMentorTags(m) };
+                const hasTags = Array.isArray(m.skillTags) && m.skillTags.length > 0;
+                const hasBio = Boolean(m.bio && String(m.bio).trim());
+                if (hasTags && hasBio) return m;
+                mentorBackfilled = true;
+                return {
+                  ...m,
+                  skillTags: hasTags ? m.skillTags : this.normalizeMentorTags(m),
+                  bio: hasBio ? m.bio : this.normalizeMentorBio(m),
+                };
               });
-              if (tagsBackfilled) {
+              if (mentorBackfilled) {
                 this.snapshots[KEYS.diasporaMentors] = JSON.stringify(this.diasporaMentors);
               }
             }
@@ -6045,11 +6090,16 @@
           // Role 3 Methods
           verifyStudent(id) {
             const s = this.pendingStudents.find((x) => x.id === id);
-            if (s) { s.verified = true; this.addToast('success', 'Student Verified', s.regNo + ' cleared by Registrar.'); }
+            if (s) {
+              s.verified = true;
+              this.logAudit('Institution Registrar', 'Verified student registration ' + s.regNo + ' (' + s.name + ')');
+              this.addToast('success', 'Student Verified', s.regNo + ' cleared by Registrar.');
+            }
           },
           logVisitAssessment() {
             if (!this.visitForm.station) return;
             this.supervisorVisits.unshift({ id: Date.now(), ...this.visitForm });
+            this.logAudit('Academic Supervisor', 'Logged site visit assessment at ' + this.visitForm.station + ' (' + this.visitForm.score + '/100)');
             this.visitForm.station = '';
             this.addToast('success', 'Visit Logged', 'Industrial supervisor assessment recorded.');
           },
@@ -6064,6 +6114,7 @@
               this.persist(KEYS.grievances, 'grievances');
               this.logAudit('Admin Executive', 'Resolved Grievance ' + g.caseCode);
               this.addToast('success', 'Case Resolved', g.caseCode + ' closed.');
+              this.triggerPostInteractionSurvey('Grievance Resolution (' + g.caseCode + ')');
             }
           },
           openPinModal(item) { this.selectedApprovalItem = item; this.checkerPin = ''; this.pinModalOpen = true; },
@@ -6129,6 +6180,7 @@
             this.perDiemForm.privacyConsent = false;
             this.perDiemModalOpen = false;
             this.addToast('success', 'Per Diem Claim Saved', ref + ' submitted for Welfare & Treasury review.');
+            this.triggerPostInteractionSurvey('Welfare Travel Claim (' + ref + ')');
           },
           handlePpeFileSelect(e) {
             const f = e && e.target && e.target.files && e.target.files[0];
@@ -6193,6 +6245,7 @@
               if (ppeInput) ppeInput.value = '';
             }
             this.addToast('success', 'Safety Gear Claim Sent', ref + ' saved safely for Finance check.');
+            this.triggerPostInteractionSurvey('Welfare Safety Gear Claim (' + ref + ')');
           },
           async downloadClaimReceipt(claim) {
             if (!claim || !claim.receiptStorageId) return;
@@ -6215,6 +6268,9 @@
             this.persist(KEYS.perDiemClaims, 'perDiemClaims');
             this.logAudit('Admin Finance', 'Admin approved Welfare Request ' + c.ref + ' -> ' + c.status);
             this.addToast('success', 'Claim Updated', c.ref + ' -> ' + c.status);
+            if (c.status === 'Disbursed via M-Pesa') {
+              this.triggerPostInteractionSurvey('Welfare Support Payout (' + c.ref + ')');
+            }
           },
           bulkApproveDaraja() {
             this.perDiemClaims = this.perDiemClaims.map((c) => ({ ...c, status: 'Disbursed via M-Pesa' }));
@@ -6593,6 +6649,7 @@
             this.secondaryApprovalPin = '';
             this.logAudit('Finance Checker (Dual-PIN)', 'Released Welfare Funds for ' + ref + ' -> Disbursed');
             this.addToast('success', 'Welfare Funds Disbursed', ref + ' status updated to Disbursed via Secondary Approval PIN.');
+            this.triggerPostInteractionSurvey('Welfare Funds Release (' + ref + ')');
           },
           verifySubscription(id) {
             const sub = this.subscriptions.find((s) => s.id === id);
@@ -6811,10 +6868,20 @@
 
             return { similarityScore, matchedTags, matchedSkills };
           },
+          normalizeMentorBio(mentor) {
+            if (!mentor) return '';
+            if (mentor.bio && String(mentor.bio).trim()) return String(mentor.bio).trim();
+            const seedMatch = (DEFAULTS.diasporaMentors || []).find(
+              (d) => Number(d.id) === Number(mentor.id) || String(d.name || '').toLowerCase() === String(mentor.name || '').toLowerCase()
+            );
+            if (seedMatch && seedMatch.bio) return seedMatch.bio;
+            return 'Kenyan diaspora mentor based in ' + (mentor.country || 'the diaspora') + ' specializing in ' + (mentor.expertise || 'industry career readiness') + '.';
+          },
           matchedDiasporaMentors() {
             const activeSkills = this.activePassportSkills();
             const scored = (this.diasporaMentors || []).map((m) => {
               const expertiseTags = this.normalizeMentorTags(m);
+              const bio = this.normalizeMentorBio(m);
               const { similarityScore, matchedTags, matchedSkills } = this.calculateTagSkillSimilarity(
                 expertiseTags,
                 activeSkills,
@@ -6825,6 +6892,7 @@
 
               return {
                 ...m,
+                bio,
                 expertiseTags,
                 matchedTags,
                 matchedSkills,
@@ -7124,6 +7192,54 @@
             this.logAudit('Admin Executive', 'Issued Exit Letter & Alumni Transition for ' + ex.ref + '; Career Passport synced');
             this.addToast('success', 'Exit Letter & Alumni Active', ex.ref + ' added to Career Transition Passport.');
           },
+          downloadExitLetter(ex) {
+            if (!ex) return;
+            const summary = [
+              'KENYA NATIONAL INTERNS, TRAINEES & ATTACHES UNION (KNITAU) x KeNIP',
+              'OFFICIAL EXIT LETTER & EXPERIENCE SUMMARY',
+              '============================================================',
+              'Reference: ' + ex.ref,
+              'Member: ' + ex.internName,
+              'NPID: ' + (ex.npid || 'NPID-KE-2026-08492'),
+              'Host Organization: ' + ex.employer,
+              'Exit Classification: ' + ex.type + ' (' + ex.reason + ')',
+              'Final Status: ' + ex.status,
+              'Final Pro-Rata Stipend Settled: KES ' + this.formatNumber(ex.finalStipendAmount || 0),
+              'Handover Summary: ' + (ex.handoverPlan || 'Cleared'),
+              'Alumni Transition: Active Member (Peer Mentor Opt-In: ' + (ex.mentorOptIn ? 'Yes' : 'No') + ')',
+              'Career Transition Passport: Synced',
+            ].join('\n');
+
+            const jspdfNs = typeof window !== 'undefined' ? window.jspdf : null;
+            const JsPDF = (jspdfNs && jspdfNs.jsPDF) || (typeof window !== 'undefined' ? window.jsPDF : null);
+            if (JsPDF) {
+              const doc = new JsPDF({ unit: 'pt', format: 'a4' });
+              doc.setFillColor(35, 31, 32);
+              doc.rect(0, 0, 595, 68, 'F');
+              doc.setTextColor(255, 255, 255);
+              doc.setFontSize(14);
+              doc.text('KNITAU x KeNIP - Official Exit Letter & Experience Summary', 40, 34);
+              doc.setFontSize(10);
+              doc.setTextColor(244, 200, 35);
+              doc.text('Reference: ' + ex.ref + '  |  Verified Alumni Record', 40, 52);
+              doc.setTextColor(35, 31, 32);
+              doc.setFontSize(11);
+              let y = 104;
+              summary.split('\n').slice(3).forEach((line) => {
+                const wrapped = doc.splitTextToSize(line, 515);
+                doc.text(wrapped, 40, y);
+                y += wrapped.length * 16 + 4;
+              });
+              doc.save('KNITAU_Exit_Letter_' + ex.ref + '.pdf');
+              this.addToast('success', 'Exit Letter Downloaded', 'Saved PDF for ' + ex.ref + '.');
+              return;
+            }
+            const blob = new Blob([summary], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            this.triggerBrowserDownload(url, 'KNITAU_Exit_Letter_' + ex.ref + '.txt');
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            this.addToast('success', 'Exit Letter Downloaded', 'Saved Exit Letter for ' + ex.ref + '.');
+          },
           toggleAlumniMentorOptIn(id) {
             const ex = this.exitCases.find((c) => c.id === id);
             if (!ex) return;
@@ -7323,6 +7439,9 @@
             this.persist(KEYS.mentorshipProgrammes, 'mentorshipProgrammes');
             this.logAudit('Mentorship Hub', 'Completed milestone ' + prog.milestonesCompleted + '/' + prog.totalMilestones + ' on ' + prog.title);
             this.addToast('success', 'Milestone Complete', prog.milestonesCompleted + ' of ' + prog.totalMilestones + ' milestones done.');
+            if (prog.milestonesCompleted === prog.totalMilestones) {
+              this.triggerPostInteractionSurvey('Mentorship Programme Completed (' + prog.title + ')');
+            }
           },
           addDiasporaMentor() {
             if (!this.diasporaMentorForm.name || !this.diasporaMentorForm.country || !this.diasporaMentorForm.expertise) return;
@@ -7330,12 +7449,15 @@
               .split(',')
               .map((t) => t.trim())
               .filter(Boolean);
+            const bio = String(this.diasporaMentorForm.bio || '').trim() ||
+              ('Kenyan diaspora mentor based in ' + this.diasporaMentorForm.country + ' specializing in ' + this.diasporaMentorForm.expertise + '.');
             this.diasporaMentors.unshift({
               id: Date.now(),
               name: this.diasporaMentorForm.name,
               country: this.diasporaMentorForm.country,
               timezone: this.diasporaMentorForm.timezone || 'UTC+0',
               expertise: this.diasporaMentorForm.expertise,
+              bio,
               skillTags: tags.length ? tags : this.normalizeMentorTags({ expertise: this.diasporaMentorForm.expertise }),
               availability: this.diasporaMentorForm.availability || 'Thu · 17:00 Local',
               verified: true,
@@ -7343,7 +7465,7 @@
             });
             this.persist(KEYS.diasporaMentors, 'diasporaMentors');
             this.logAudit('Admin Diaspora Desk', 'Registered Diaspora Mentor ' + this.diasporaMentorForm.name + ' (' + tags.join(', ') + ')');
-            this.diasporaMentorForm = { name: '', country: '', timezone: 'CET (UTC+1)', expertise: '', skillTagsInput: '', availability: 'Thu · 17:00 Local' };
+            this.diasporaMentorForm = { name: '', country: '', timezone: 'CET (UTC+1)', expertise: '', skillTagsInput: '', bio: '', availability: 'Thu · 17:00 Local' };
             this.addToast('success', 'Diaspora Mentor Added', 'Mentor and expertise tags synced to Global Corridor.');
           },
           verifyDiasporaMentor(id) {
