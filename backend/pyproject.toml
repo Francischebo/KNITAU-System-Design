@@ -1,0 +1,97 @@
+[project]
+name = "knitau-kenip-backend"
+version = "1.0.0"
+description = "KNITAU x KeNIP Production Modular Monolith Backend"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.1,<5.2",
+    "djangorestframework>=3.15,<3.16",
+    "drf-spectacular>=0.27,<0.28",
+    "djangorestframework-simplejwt>=5.3,<5.4",
+    "django-cors-headers>=4.4,<5.0",
+    "django-axes>=6.5,<7.0",
+    "psycopg[binary,pool]>=3.2,<3.3",
+    "celery[redis]>=5.4,<5.5",
+    "django-celery-beat>=2.7,<2.8",
+    "redis>=5.1,<5.2",
+    "boto3>=1.35,<2.0",
+    "pydantic>=2.9,<3.0",
+    "structlog>=24.4,<25.0",
+    "gunicorn>=23.0,<24.0",
+    "whitenoise>=6.7,<7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9.0",
+    "pytest-django>=4.9,<5.0",
+    "pytest-cov>=5.0,<6.0",
+    "factory-boy>=3.3,<4.0",
+    "ruff>=0.6,<0.8",
+    "mypy>=1.11,<2.0",
+    "django-stubs>=5.1,<5.2",
+    "import-linter>=2.0,<3.0",
+    "bandit>=1.7,<2.0",
+]
+
+# ==============================================================================
+# MODULAR MONOLITH BOUNDARY ENFORCEMENT (CI-GATE)
+# Run: lint-imports
+# ==============================================================================
+[tool.importlinter]
+root_package = "apps"
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+name = "Domain modules must remain independent (no cross-module direct imports)"
+type = "independence"
+modules = [
+    "apps.identity",
+    "apps.corridor",
+    "apps.welfare",
+    "apps.exit_workflow",
+    "apps.grievances",
+    "apps.ussd_gateway",
+]
+# Cross-domain reads/writes must go through apps.common.events or explicit public services.
+ignore_imports = [
+    "apps.* -> apps.common.*",
+    "apps.* -> apps.audit.*",
+]
+
+[[tool.importlinter.contracts]]
+name = "No module may import another module's models directly"
+type = "forbidden"
+source_modules = [
+    "apps.identity",
+    "apps.corridor",
+    "apps.welfare",
+    "apps.exit_workflow",
+    "apps.grievances",
+    "apps.ussd_gateway",
+]
+forbidden_modules = [
+    "apps.identity.models",
+    "apps.corridor.models",
+    "apps.welfare.models",
+    "apps.exit_workflow.models",
+    "apps.grievances.models",
+    "apps.ussd_gateway.models",
+]
+allow_indirect_imports = false
+
+# ==============================================================================
+# CODE QUALITY, LINTING & TYPE CHECKING
+# ==============================================================================
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "S", "UP", "DJ"]
+ignore = ["S101"] # Allow assert in pytest
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.local"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "--strict-markers --tb=short"
