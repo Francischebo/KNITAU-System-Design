@@ -1,0 +1,54 @@
+name: KNITAU Full-Stack CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: pip install -e ".[dev]"
+      - name: Modular monolith boundary check (import-linter)
+        run: lint-imports
+      - name: Static analysis, typing & security scan
+        run: |
+          ruff check .
+          mypy apps config
+          bandit -r apps config -q
+      - name: OpenAPI schema validation (SSOT)
+        env:
+          DJANGO_DEBUG: "True"
+        run: python manage.py spectacular --validate --file openapi-schema.yaml
+      - name: Pytest suite
+        env:
+          DJANGO_DEBUG: "True"
+        run: pytest --cov=apps --cov-report=term-missing
+
+  frontend-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: TypeScript & ESLint verification
+        run: npm run lint
+      - name: Unit & offline sync tests
+        run: npm test
+      - name: Production bundle build
+        run: npm run build

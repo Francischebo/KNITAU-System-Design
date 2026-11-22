@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     # Third-party
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "corsheaders",
     "axes",
@@ -48,8 +49,11 @@ INSTALLED_APPS = [
     "apps.ussd_gateway",
 ]
 
+AUTH_USER_MODEL = "identity.User"
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.common.middleware.RequestTraceMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -162,6 +166,15 @@ CORS_ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+MPESA_WEBHOOK_HMAC_SECRET = os.environ.get("MPESA_WEBHOOK_HMAC_SECRET", "")
+
+CELERY_BEAT_SCHEDULE = {
+    "reconcile-stale-mpesa-disbursements": {
+        "task": "apps.welfare.tasks.reconcile_stale_disbursements",
+        "schedule": timedelta(minutes=15),
+    },
+}
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Africa/Nairobi"

@@ -69,13 +69,22 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-knitau_app}:${POSTGRES_PASSWORD}@pgbouncer:5432/${POSTGRES_DB:-knitau}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       pgbouncer:
         condition: service_started
       redis:
         condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web_api
 
   worker_payments:
     build:

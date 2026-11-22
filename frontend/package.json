@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "lint": "tsc --noEmit && eslint src",
     "test": "vitest run",
+    "test:core": "node --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "codegen:api": "openapi-typescript ../backend/openapi-schema.yaml -o src/lib/api/schema.d.ts"
   },

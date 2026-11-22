@@ -42,7 +42,9 @@
 
 ```text
 ├── ARCHITECTURE.md                      # This full-stack system & kick-off manual
-├── docker-compose.yml                   # Local/staging stack (PG16, PgBouncer, Redis, MinIO, API, Workers)
+├── .github/workflows/ci.yml             # Automated PR gates: contracts, pytest, ruff/mypy/bandit, OpenAPI, frontend
+├── docker-compose.yml                   # Local/staging stack (Nginx, PG16, PgBouncer, Redis, MinIO, API, Workers)
+├── infra/nginx/nginx.conf               # Edge reverse proxy: rate limits, TLS headers, X-Request-ID, 15MB upload cap
 ├── index.html                           # Existing interactive UI prototype
 │
 ├── backend/                             # PYTHON / DJANGO MODULAR MONOLITH
@@ -52,44 +54,36 @@
 │   ├── manage.py & Dockerfile           # Django CLI & non-root production image
 │   ├── config/
 │   │   ├── celery.py                    # Isolated task queues (payments_mpesa vs default)
-│   │   ├── urls.py                      # /healthz/, /api/schema/, /api/docs/, /api/v1/*
+│   │   ├── urls.py                      # /healthz/, /api/schema/, /api/docs/, /api/v1/{auth,corridor,welfare,ussd}/*
 │   │   └── settings/{base,local,production}.py
 │   └── apps/
-│       ├── common/                      # Shared Kernel: UUID models, SoftDelete, RBAC, Idempotency, Events
-│       ├── audit/                       # Immutable SHA-256 hash-chained AuditLog + PII redaction
-│       ├── corridor/                    # Reference Domain: Diaspora Mentors, Bio, Skill Similarity Engine
-│       ├── identity/                    # Users, KYC, Employers, TVET/Uni Institutions, Career Passport
-│       ├── welfare/                     # Stipends, Per-Diem, PPE Claims, M-Pesa B2C Payouts
+│       ├── common/                      # Shared Kernel: UUID models, SoftDelete, RBAC, Idempotency, Events, Tracing
+│       ├── audit/                       # Immutable SHA-256 AuditLog + PostgreSQL trigger migration (0002)
+│       ├── identity/                    # Custom User (AUTH_USER_MODEL), DPA ID hashing, JWT + HttpOnly Refresh API
+│       ├── corridor/                    # Reference Domain: Diaspora Mentors, Bio, Skill Similarity Engine + tests
+│       ├── welfare/                     # Stipend State Machine, Redis Idempotency, M-Pesa B2C Celery + Beat + HMAC
 │       ├── exit_workflow/               # Early Exit, Dismissal Defense, 4-Way Clearance, Exit Letters
 │       ├── grievances/                  # Confidential Reporting, Escalation SLA, Post-Interaction Pulse
-│       └── ussd_gateway/                # Stateless *384* USSD handler + Africa's Talking webhooks
+│       └── ussd_gateway/                # Stateless *384* USSD handler + Redis session store
 │
 └── frontend/                            # REACT + TYPESCRIPT + TAILWIND PWA
     ├── Makefile                         # dev, build, test, lint, codegen-api
     ├── package.json                     # React 19, TypeScript, Vite, TanStack Query, Zod, Vitest, Playwright
+    ├── tsconfig.json & vite.config.ts   # Strict TS & Vite + Tailwind v4 configuration
     ├── .env.example                     # Public build-time vars ONLY (VITE_API_BASE_URL)
+    ├── tests/frontend_core.test.ts      # Runnable RBAC, idempotency, and brand palette verification tests
     └── src/
-        ├── app/                         # App shell, Router, QueryClientProvider, AuthProvider
+        ├── app/                         # App.tsx shell, AuthProvider (401 refresh), OfflineSyncBanner, ErrorBoundary
         ├── design-system/
-        │   ├── tokens.ts                # Strict 5-color KNITAU palette & typography tokens
-        │   └── components/              # Reusable UI primitives (Card, Badge, Modal, Table, Stepper)
+        │   └── tokens.ts                # Strict 5-color KNITAU palette & similarity badge tokens
         ├── lib/
-        │   ├── api/
-        │   │   ├── schema.d.ts          # AUTO-GENERATED from backend openapi-schema.yaml (SSOT)
-        │   │   └── client.ts            # Fetch/Axios wrapper: injects Bearer JWT + auto-refresh + X-Idempotency-Key
-        │   ├── auth/
-        │   │   ├── rbac.ts              # Mirror of backend roles & admin sub-roles + route guards
-        │   │   └── session.ts           # In-memory Access Token store (never stored in localStorage)
+        │   ├── api/client.ts            # Fetch wrapper: single-flight 401 refresh + X-Request-ID + X-Idempotency-Key
+        │   ├── auth/rbac.ts             # Mirror of backend roles & admin sub-roles + route guards
         │   └── offline/
-        │       └── idempotency.ts       # Offline IndexedDB mutation queue + retry backoff + UUID keys
-        └── features/                    # Vertical feature slices matching backend apps 1:1
-            ├── auth/                    # Login, OTP/2FA, Role Switcher (if permitted)
-            ├── passport/                # Career Passport, active skill toggles, verified credential badges
-            ├── corridor/                # Global Corridor, Diaspora Mentor cards (Bio + Similarity %), Return/Jobs
-            ├── welfare/                 # Stipend ledger, Per-Diem & PPE claims, M-Pesa PIN release confirmation
-            ├── exit-workflow/           # 4-way clearance tracker, dismissal defense, Exit Letter PDF viewer
-            ├── grievances/              # Confidential ticket submission, timeline, Post-Interaction Pulse survey
-            └── admin/                   # Sub-role scoped Observatory (Executive, Case, Finance, Chapter Rep)
+        │       ├── idempotency.ts       # Client UUID key generator & queued action payload builder
+        │       └── indexedDbQueue.ts    # Real IndexedDB offline store + ordered reconnection flush
+        └── features/
+            └── corridor/                # Reference feature: OpenAPI types.ts + DiasporaMentorCard.tsx
 ```
 
 ---
@@ -154,7 +148,8 @@ Do **not** dump everything into one giant global store:
 2. **Feature Branch Rhythm**:
    - Every PR must pass **5 CI gates**: `make contracts` + `make test` + `make lint` (Backend) and `tsc --noEmit` + `vitest` (Frontend).
    - Database migrations must preserve backward compatibility (`SoftDeleteModel`, additive migrations) so zero-downtime rolling deploys work safely.
-3. **Production Deployment Checklist**:
-   - Configure server-only secrets (`DJANGO_SECRET_KEY`, DB/PgBouncer, Redis, M-Pesa Daraja keys, Africa's Talking API key, S3 credentials) via cloud secret manager — never in `.env` committed to Git or `VITE_*` variables.
-   - Apply PostgreSQL `REVOKE UPDATE, DELETE` on `audit_auditlog` migration before go-live.
-   - Scale `web_api` behind TLS 1.3 CDN/Load Balancer and run `worker_payments` on a dedicated high-reliability node.
+3. **Production Deployment & Operations Checklist**:
+   - **Secrets & DPA Compliance**: Load `DJANGO_SECRET_KEY`, DB/PgBouncer, Redis, M-Pesa Daraja keys, Africa's Talking API key, and S3 credentials from a cloud Secret Manager. Store National IDs via salted HMAC (`hash_national_id`) and issue short-lived pre-signed S3 URLs for KYC/Exit Letters.
+   - **Database Immutability & Migration Order**: Run `python manage.py migrate identity` first (`AUTH_USER_MODEL = "identity.User"`), then apply all migrations (including `audit/0002_immutable_postgres_rules.py` PostgreSQL triggers).
+   - **Automated Backups & DR**: Enable daily PostgreSQL logical snapshots + continuous WAL archiving (`pgBackRest`) to encrypted object storage with monthly restore verification drills (target RPO < 5 min, RTO < 30 min).
+   - **Scaling**: Serve via `infra/nginx/nginx.conf` behind TLS 1.3 CDN/Load Balancer; isolate `worker_payments` (`-Q payments_mpesa`) on a dedicated high-reliability node with the 15-minute `reconcile_stale_disbursements` Celery Beat job active.

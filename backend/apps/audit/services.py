@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from django.db import transaction
 
+from apps.common.tracing import current_trace_id
 from .models import AuditLog
 
 _SENSITIVE_KEYS = frozenset(
@@ -44,7 +45,7 @@ def record_audit_event(
         action=action,
         target_type=target_type,
         target_id=str(target_id),
-        trace_id=trace_id,
+        trace_id=trace_id or current_trace_id(),
         metadata=_redact_metadata(metadata or {}),
         prev_hash=prev_hash,
     )
